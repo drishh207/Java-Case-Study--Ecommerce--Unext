@@ -103,16 +103,16 @@ public class user {
 			name = name.toLowerCase();
 			Statement stmt1 = con.createStatement();
 			String query1 = "select category_id from category where category_name = '" + name + "';";
-			//System.out.println(query1);
+			
 			ResultSet rs1 = stmt1.executeQuery(query1);
 			int id = 0;
 			if(rs1.next()) {
 				id = rs1.getInt(1);
 			}
-			//System.out.println("" + id);
+			
 			Statement stmt2 = con.createStatement();
 			String query2 = "select * from product where category_id = " + id + ";";
-			//System.out.println(query2);
+			
 			ResultSet rs2 = stmt2.executeQuery(query2);
 			while(rs2.next()) {
 				System.out.println("==========================================");
@@ -138,25 +138,50 @@ public class user {
 		try {
 			connect();
 			System.out.println("Enter Product ID to order item");
-			//check quantity
+			//check quantity -------------------
 			int pid = scan.nextInt();
 			System.out.println("Enter quantity you want to order: ");
 			int quantity = scan.nextInt();
-//			String query3 = "select "
-			Random rnd = new Random();
-			int oid = 100000 + rnd.nextInt(900000);
-			SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
-			String date = df.format(new Date());
-			LocalDate delivery_date = LocalDate.now();
-			delivery_date = delivery_date.plusDays(7);
 			
-			Statement stmt = con.createStatement();
-			String query = "insert into orders values(" + oid + " , '" + date + "','" + delivery_date + "'," + pid + "," + quantity + ",'" + a +"');";
-			System.out.println(query);
-			stmt.executeUpdate(query);
-			System.out.println("Items Ordered successfully");
-			System.out.println("Your order will be delivered till " + delivery_date + ". Kindly refer to order id " + oid + " for further communications for this order.");
-			login_user(a,b);
+			Statement stmt1 = con.createStatement();
+			String querya = "select quantity from product where product_id = " + pid + ";";
+			ResultSet rs1 = stmt1.executeQuery(querya);
+			int qu = 0;
+			if(rs1.next()) {
+				qu = rs1.getInt(1);
+			}
+			if(qu > quantity) {
+				Random rnd = new Random();
+				int oid = 100000 + rnd.nextInt(900000);
+				SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+				String date = df.format(new Date());
+				LocalDate delivery_date = LocalDate.now();
+				delivery_date = delivery_date.plusDays(7);
+				
+				Statement stmt = con.createStatement();
+				String query = "insert into orders values(" + oid + " , '" + date + "','" + delivery_date + "'," + pid + "," + quantity + ",'" + a +"');";
+				//System.out.println(query);
+				stmt.executeUpdate(query);
+				System.out.println("Items Ordered successfully");
+				System.out.println("Your order will be delivered till " + delivery_date + ". Kindly refer to order id " + oid + " for further communications for this order.");
+				
+				//reduce quantity
+				Statement stmt2 = con.createStatement();
+				String query2 = "update product set quantity = " + (qu - quantity) + " where product_id = " + pid + ";" ;
+				//System.out.println(query2);
+				stmt.executeUpdate(query2);
+				login_user(a,b);
+			}
+			else if (qu == 0){
+				System.out.println("Sorry to inform but this item is sold out. We will inform you once it gets restocked.");
+				order_items(a,b);
+			}
+			else if(qu < quantity){
+				System.out.println("Only " + qu + " items left in stock. Please order accordingly");
+				order_items(a,b);
+			}
+			
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -175,7 +200,6 @@ public class user {
 				int id = rs.getInt("product_id");
 				Statement stmt1 = con.createStatement();
 				String query1 = "select product_name from product where product_id = "+ id + ";";
-				//System.out.println(query1);
 				ResultSet rs1 = stmt1.executeQuery(query1);
 				if(rs1.next()) {
 					System.out.println("Item Bought: " + rs1.getString(1));
@@ -246,7 +270,7 @@ public class user {
 					break;
 			}
 			String query = "update users set " + parameter + " = '" + up + "' where username = '" + a +"';"; 
-			System.out.println(query);
+			//System.out.println(query);
 			stmt.executeUpdate(query);
 			System.out.println("Profile Updated.\n New Profile is");
 			view_profile(a,b);
@@ -261,10 +285,43 @@ public class user {
 			connect();
 			System.out.println("Enter the order number of the order you wish to cancel");
 			int no = scan.nextInt();
+			
+			//updating quantity
+			int qu = 0;
+			int pid = 0;
+			int qu1 = 0;
+			Statement stmt1 = con.createStatement();
+			String query1 = "select quantity,product_id from orders where order_id = " + no +";";
+			//System.out.println(query1);
+			ResultSet rs = stmt1.executeQuery(query1);
+			while(rs.next()) {
+				qu = rs.getInt(1);
+				pid = rs.getInt(2);
+			}
+			//System.out.println(qu + " " + pid + "test");
+			
+			Statement stmt2 = con.createStatement();
+			String query2 = "select quantity from product where product_id = " + pid +";";
+			//System.out.println(query2);
+			ResultSet rs1 = stmt2.executeQuery(query2);
+			if(rs1.next()) {
+				qu1 = rs1.getInt(1);
+			}
+			
+			Statement stmt3 = con.createStatement();
+			String query3 = "update product set quantity = " + (qu + qu1) + " where product_id = " + pid + ";";
+			//System.out.println(query3);
+			stmt3.executeUpdate(query3);
+			
+			
+			//delete order
 			Statement stmt = con.createStatement();
 			String query = "delete from orders where username = '" + a +"' and order_id = " + no +";";
 			stmt.executeUpdate(query);
 			System.out.println("Order number " + no + " cancelled successfully.");
+			stmt.close();
+			
+			
 			
 			login_user(a,b);
 		} catch (Exception e) {
@@ -315,13 +372,12 @@ public class user {
 	
 	public void login_user(String a, String b) {
 		try {
-			//System.out.println("In login_user");
+			
 			connect();
 			Statement stmt = con.createStatement();
 			String query = "select username,password from user_login where username = \'" + a +"\' and password = " + b + ";";
-			//System.out.println(query);
 			ResultSet rs= stmt.executeQuery(query); 
-			//System.out.println("After select");		
+				
 			System.out.println();
 			if(rs.next()){
 				user u = new user();
